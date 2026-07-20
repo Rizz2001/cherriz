@@ -100,7 +100,7 @@ class _LoginScreenState extends State<LoginScreen>
             fontWeight: FontWeight.w500,
           ),
         ),
-        backgroundColor: const Color(0xFF1E1336).withOpacity(0.9),
+        backgroundColor: const Color(0xFF1E1336).withValues(alpha: 0.9),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         elevation: 0,
@@ -188,10 +188,10 @@ class _LoginScreenState extends State<LoginScreen>
                   constraints: const BoxConstraints(maxWidth: 400),
                   padding: const EdgeInsets.all(32.0),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.08),
+                    color: Colors.white.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(32),
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       width: 1.5,
                     ),
                   ),
@@ -483,8 +483,8 @@ class _LoginScreenState extends State<LoginScreen>
           height: 70,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: Colors.white.withOpacity(0.05),
-            border: Border.all(color: Colors.white.withOpacity(0.15)),
+            color: Colors.white.withValues(alpha: 0.05),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
           ),
           child: Center(
             child: isAction
@@ -520,12 +520,12 @@ class _LoginScreenState extends State<LoginScreen>
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 18),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
+            color: Colors.white.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withOpacity(0.2)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withValues(alpha: 0.1),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),

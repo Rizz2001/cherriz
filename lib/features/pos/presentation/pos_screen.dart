@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:printing/printing.dart';
-import '../../admin/presentation/admin_layout_screen.dart';
+import '../../admin/presentation/admin_dashboard_screen.dart';
 import '../utils/receipt_generator.dart';
 
 class POSScreen extends StatefulWidget {
@@ -49,7 +49,10 @@ class _POSScreenState extends State<POSScreen> {
       }
 
       // 2. Obtener Productos
-      final response = await supabase.from('products').select().eq('is_active', true);
+      final response = await supabase
+          .from('products')
+          .select()
+          .eq('is_active', true);
 
       if (!mounted) return;
       setState(() {
@@ -69,7 +72,7 @@ class _POSScreenState extends State<POSScreen> {
               fontWeight: FontWeight.w500,
             ),
           ),
-          backgroundColor: const Color(0xFF1E1336).withOpacity(0.9),
+          backgroundColor: const Color(0xFF1E1336).withValues(alpha: 0.9),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -153,7 +156,7 @@ class _POSScreenState extends State<POSScreen> {
             // Cálculos dinámicos del pago
             double totalPaidEquivalentUsd = 0.0;
             for (var p in payments) {
-              final amt = p['amount'] as double;
+              final amt = (p['amount'] as num?)?.toDouble() ?? 0.0;
               final method = p['method'] as String;
               if (method.contains('Bs') ||
                   method == 'Pago Móvil' ||
@@ -382,7 +385,7 @@ class _POSScreenState extends State<POSScreen> {
                                 Expanded(
                                   flex: 2,
                                   child: DropdownButtonFormField<String>(
-                                    value: currentMethod,
+                                    initialValue: currentMethod,
                                     decoration: const InputDecoration(
                                       labelText: 'Método',
                                       border: OutlineInputBorder(),
@@ -396,10 +399,11 @@ class _POSScreenState extends State<POSScreen> {
                                         )
                                         .toList(),
                                     onChanged: (val) {
-                                      if (val != null)
+                                      if (val != null) {
                                         setModalState(
                                           () => currentMethod = val,
                                         );
+                                      }
                                     },
                                   ),
                                 ),
@@ -516,7 +520,7 @@ class _POSScreenState extends State<POSScreen> {
                                   color: Color(0xFF281E59),
                                 ),
                                 title: Text(
-                                  '${p['method']} - $prefix${(p['amount'] as double).toStringAsFixed(2)}',
+                                  '${p['method']} - $prefix${((p['amount'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(2)}',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -579,7 +583,7 @@ class _POSScreenState extends State<POSScreen> {
                                     final List<Map<String, dynamic>>
                                     orderItems = cartItems.map((item) {
                                       final product = item['product'];
-                                      final qty = item['quantity'] as int;
+                                      final qty = (item['quantity'] as num?)?.toInt() ?? 1;
                                       final priceUsd =
                                           (product['price_usd'] as num?)
                                               ?.toDouble() ??
@@ -601,7 +605,7 @@ class _POSScreenState extends State<POSScreen> {
                                     // 3. Inserción de Pagos
                                     final List<Map<String, dynamic>>
                                     orderPayments = payments.map((p) {
-                                      final amt = p['amount'] as double;
+                                      final amt = (p['amount'] as num?)?.toDouble() ?? 0.0;
                                       final method = p['method'] as String;
 
                                       // Calcular equivalentes (USD y Bs) para mantener ambas columnas requeridas
@@ -657,9 +661,10 @@ class _POSScreenState extends State<POSScreen> {
                                     final finalChangeUsd = changeUsd;
                                     final finalChangeBs = changeBs;
 
-                                    if (!mounted) return;
+                                    if (!dialogContext.mounted) return;
                                     Navigator.of(dialogContext).pop();
 
+                                    if (!mounted) return;
                                     setState(() {
                                       cartItems.clear();
                                     });
@@ -787,7 +792,7 @@ class _POSScreenState extends State<POSScreen> {
             tooltip: 'Panel Administrativo',
             onPressed: () {
               Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const AdminLayoutScreen()),
+                MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
               );
             },
           ),
@@ -829,7 +834,7 @@ class _POSScreenState extends State<POSScreen> {
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
                         borderSide: BorderSide(
-                          color: Colors.grey.withOpacity(0.2),
+                          color: Colors.grey.withValues(alpha: 0.2),
                           width: 1,
                         ),
                       ),
@@ -896,7 +901,7 @@ class _POSScreenState extends State<POSScreen> {
                       color: Colors.white,
                       border: Border(
                         bottom: BorderSide(
-                          color: Colors.grey.withOpacity(0.2),
+                          color: Colors.grey.withValues(alpha: 0.2),
                           width: 1,
                         ),
                       ),
@@ -949,12 +954,13 @@ class _POSScreenState extends State<POSScreen> {
                               vertical: 12,
                             ),
                             itemCount: cartItems.length,
-                            separatorBuilder: (context, index) =>
-                                Divider(color: Colors.grey.withOpacity(0.15)),
+                            separatorBuilder: (context, index) => Divider(
+                              color: Colors.grey.withValues(alpha: 0.15),
+                            ),
                             itemBuilder: (context, index) {
                               final item = cartItems[index];
                               final product = item['product'];
-                              final qty = item['quantity'] as int;
+                              final qty = (item['quantity'] as num?)?.toInt() ?? 1;
                               final priceUsd =
                                   (product['price_usd'] as num?)?.toDouble() ??
                                   0.0;
@@ -1052,7 +1058,7 @@ class _POSScreenState extends State<POSScreen> {
                       color: Colors.white,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.04),
+                          color: Colors.black.withValues(alpha: 0.04),
                           offset: const Offset(0, -6),
                           blurRadius: 15,
                         ),
@@ -1159,10 +1165,10 @@ class _POSScreenState extends State<POSScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey.withOpacity(0.15)),
+            border: Border.all(color: Colors.grey.withValues(alpha: 0.15)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.03),
+                color: Colors.black.withValues(alpha: 0.03),
                 blurRadius: 8,
                 offset: const Offset(0, 4),
               ),
@@ -1175,7 +1181,7 @@ class _POSScreenState extends State<POSScreen> {
                 flex: 4,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: iconColor.withOpacity(0.05),
+                    color: iconColor.withValues(alpha: 0.05),
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(16),
                     ),
@@ -1198,7 +1204,7 @@ class _POSScreenState extends State<POSScreen> {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: iconColor.withOpacity(0.1),
+                            color: iconColor.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -1206,7 +1212,7 @@ class _POSScreenState extends State<POSScreen> {
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
-                              color: iconColor.withOpacity(0.8),
+                              color: iconColor.withValues(alpha: 0.8),
                             ),
                           ),
                         ),
@@ -1220,7 +1226,7 @@ class _POSScreenState extends State<POSScreen> {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.blueAccent.withOpacity(0.1),
+                            color: Colors.blueAccent.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(

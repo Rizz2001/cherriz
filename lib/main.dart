@@ -6,12 +6,10 @@ import 'features/auth/presentation/login_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // TODO: Asegúrate de tener los valores correctos en supabase_config.dart
-  // para que la inicialización no falle.
   try {
     await Supabase.initialize(
       url: SupabaseConfig.supabaseUrl,
-      anonKey: SupabaseConfig.supabaseAnonKey,
+      publishableKey: SupabaseConfig.supabaseAnonKey,
     );
   } catch (e) {
     debugPrint('Error al inicializar Supabase. Revisa las credenciales: $e');

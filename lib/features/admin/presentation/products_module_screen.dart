@@ -12,7 +12,10 @@ class _ProductsModuleScreenState extends State<ProductsModuleScreen> {
   final supabase = Supabase.instance.client;
 
   bool isLoading = true;
-  List<Map<String, dynamic>> products = [];
+  List<Map<String, dynamic>> categories = [];
+  List<Map<String, dynamic>> suppliers = [];
+  String searchQuery = '';
+  
   Map<String, dynamic>? company;
   final TextEditingController _rateController = TextEditingController();
   bool isUpdatingRate = false;
@@ -32,10 +35,8 @@ class _ProductsModuleScreenState extends State<ProductsModuleScreen> {
   Future<void> _fetchData() async {
     try {
       final compRes = await supabase.from('companies').select().limit(1);
-      final prodRes = await supabase
-          .from('products')
-          .select()
-          .eq('is_active', true);
+      final catRes = await supabase.from('categories').select();
+      final supRes = await supabase.from('suppliers').select();
 
       if (!mounted) return;
 
@@ -45,7 +46,8 @@ class _ProductsModuleScreenState extends State<ProductsModuleScreen> {
           _rateController.text =
               company!['exchange_rate']?.toString() ?? '40.00';
         }
-        products = List<Map<String, dynamic>>.from(prodRes);
+        categories = List<Map<String, dynamic>>.from(catRes);
+        suppliers = List<Map<String, dynamic>>.from(supRes);
         isLoading = false;
       });
     } catch (e) {
@@ -53,6 +55,12 @@ class _ProductsModuleScreenState extends State<ProductsModuleScreen> {
       setState(() => isLoading = false);
       _showSnackBar('Error cargando datos: $e', isError: true);
     }
+  }
+
+  void _updateSearchQuery(String query) {
+    setState(() {
+      searchQuery = query;
+    });
   }
 
   Future<void> _updateExchangeRate() async {
@@ -104,15 +112,29 @@ class _ProductsModuleScreenState extends State<ProductsModuleScreen> {
     final skuController = TextEditingController(
       text: isEditing ? product['sku'] : '',
     );
+    final barcodeController = TextEditingController(
+      text: isEditing ? (product['barcode']?.toString() ?? '') : '',
+    );
     final priceController = TextEditingController(
-      text: isEditing ? product['price_usd'].toString() : '',
+      text: isEditing ? product['price_usd']?.toString() : '',
     );
-    final stockController = TextEditingController(
-      text: isEditing ? (product['stock']?.toString() ?? '0') : '',
+    final costController = TextEditingController(
+      text: isEditing ? product['cost_usd']?.toString() : '',
     );
-    String selectedCategory = isEditing
-        ? (product['category'] ?? 'Viveres')
-        : 'Viveres';
+    final marginController = TextEditingController(
+      text: isEditing ? product['margin_percent']?.toString() : '',
+    );
+    final unitsPerBoxController = TextEditingController(
+      text: isEditing ? (product['units_per_box']?.toString() ?? '1') : '1',
+    );
+    final weightController = TextEditingController(
+      text: isEditing ? (product['weight_grams']?.toString() ?? '') : '',
+    );
+    
+    String? selectedCategoryId = isEditing ? product['category_id']?.toString() : null;
+    String? selectedSupplierId = isEditing ? product['supplier_id']?.toString() : null;
+    bool isSuspended = isEditing ? (product['is_suspended'] == true) : false;
+    
     String selectedUnitType = isEditing
         ? (product['unit_type']?.toString().toLowerCase() ?? 'unidad')
         : 'unidad';
@@ -160,7 +182,7 @@ class _ProductsModuleScreenState extends State<ProductsModuleScreen> {
                             child: TextField(
                               controller: skuController,
                               decoration: const InputDecoration(
-                                labelText: 'SKU / Código',
+                                labelText: 'SKU',
                                 border: OutlineInputBorder(),
                               ),
                             ),
@@ -168,15 +190,10 @@ class _ProductsModuleScreenState extends State<ProductsModuleScreen> {
                           const SizedBox(width: 16),
                           Expanded(
                             child: TextField(
-                              controller: priceController,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
+                              controller: barcodeController,
                               decoration: const InputDecoration(
-                                labelText: 'Precio en USD',
+                                labelText: 'Código de Barras',
                                 border: OutlineInputBorder(),
-                                prefixText: '\$ ',
                               ),
                             ),
                           ),
@@ -186,19 +203,111 @@ class _ProductsModuleScreenState extends State<ProductsModuleScreen> {
                       Row(
                         children: [
                           Expanded(
-                            child: TextField(
-                              controller: stockController,
-                              keyboardType: TextInputType.number,
+                            child: DropdownButtonFormField<String>(
+                              initialValue: selectedCategoryId,
                               decoration: const InputDecoration(
-                                labelText: 'Stock (Existencias)',
+                                labelText: 'Categoría',
                                 border: OutlineInputBorder(),
                               ),
+                              items: categories.map((cat) {
+                                return DropdownMenuItem<String>(
+                                  value: cat['id'].toString(),
+                                  child: Text(cat['name'] ?? ''),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                setModalState(() => selectedCategoryId = value);
+                              },
                             ),
                           ),
                           const SizedBox(width: 16),
                           Expanded(
                             child: DropdownButtonFormField<String>(
-                              value: selectedUnitType,
+                              initialValue: selectedSupplierId,
+                              decoration: const InputDecoration(
+                                labelText: 'Proveedor',
+                                border: OutlineInputBorder(),
+                              ),
+                              items: suppliers.map((sup) {
+                                return DropdownMenuItem<String>(
+                                  value: sup['id'].toString(),
+                                  child: Text(sup['name'] ?? ''),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                setModalState(() => selectedSupplierId = value);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: costController,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              decoration: const InputDecoration(
+                                labelText: 'Costo USD',
+                                border: OutlineInputBorder(),
+                                prefixText: '\$ ',
+                              ),
+                              onChanged: (val) {
+                                final cost = double.tryParse(val) ?? 0;
+                                final margin = double.tryParse(marginController.text) ?? 0;
+                                if (cost > 0) {
+                                  priceController.text = (cost + (cost * margin / 100)).toStringAsFixed(2);
+                                }
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: TextField(
+                              controller: marginController,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              decoration: const InputDecoration(
+                                labelText: 'Margen %',
+                                border: OutlineInputBorder(),
+                                suffixText: '%',
+                              ),
+                              onChanged: (val) {
+                                final cost = double.tryParse(costController.text) ?? 0;
+                                final margin = double.tryParse(val) ?? 0;
+                                if (cost > 0) {
+                                  priceController.text = (cost + (cost * margin / 100)).toStringAsFixed(2);
+                                }
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: TextField(
+                              controller: priceController,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              decoration: const InputDecoration(
+                                labelText: 'Precio USD',
+                                border: OutlineInputBorder(),
+                                prefixText: '\$ ',
+                              ),
+                              onChanged: (val) {
+                                final cost = double.tryParse(costController.text) ?? 0;
+                                final price = double.tryParse(val) ?? 0;
+                                if (cost > 0) {
+                                  marginController.text = (((price - cost) / cost) * 100).toStringAsFixed(2);
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              initialValue: selectedUnitType,
                               decoration: const InputDecoration(
                                 labelText: 'Tipo de Unidad',
                                 border: OutlineInputBorder(),
@@ -223,34 +332,37 @@ class _ProductsModuleScreenState extends State<ProductsModuleScreen> {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        value: selectedCategory,
-                        decoration: const InputDecoration(
-                          labelText: 'Categoría',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'Viveres',
-                            child: Text('Viveres'),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: unitsPerBoxController,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: 'Unidades por Caja',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
                           ),
-                          DropdownMenuItem(
-                            value: 'Bebidas',
-                            child: Text('Bebidas'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Licores',
-                            child: Text('Licores'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Snacks',
-                            child: Text('Snacks'),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: TextField(
+                              controller: weightController,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              decoration: const InputDecoration(
+                                labelText: 'Peso (Gramos)',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
                           ),
                         ],
-                        onChanged: (value) {
-                          if (value != null) {
-                            setModalState(() => selectedCategory = value);
-                          }
+                      ),
+                      const SizedBox(height: 16),
+                      SwitchListTile(
+                        title: const Text('Producto Suspendido / Descontinuado'),
+                        value: isSuspended,
+                        onChanged: (val) {
+                          setModalState(() => isSuspended = val);
                         },
                       ),
                       const SizedBox(height: 32),
@@ -290,17 +402,15 @@ class _ProductsModuleScreenState extends State<ProductsModuleScreen> {
                                     final price = double.tryParse(
                                       priceController.text.trim(),
                                     );
-                                    final stock =
-                                        int.tryParse(
-                                          stockController.text.trim(),
-                                        ) ??
-                                        0;
+                                    final barcode = barcodeController.text.trim();
+                                    final cost = double.tryParse(costController.text.trim());
+                                    final margin = double.tryParse(marginController.text.trim());
+                                    final unitsPerBox = int.tryParse(unitsPerBoxController.text.trim()) ?? 1;
+                                    final weightGrams = double.tryParse(weightController.text.trim());
 
-                                    if (name.isEmpty ||
-                                        sku.isEmpty ||
-                                        price == null) {
+                                    if (name.isEmpty || price == null) {
                                       _showSnackBar(
-                                        'Por favor completa todos los campos correctamente',
+                                        'Por favor ingresa nombre y precio al menos',
                                         isError: true,
                                       );
                                       return;
@@ -310,19 +420,29 @@ class _ProductsModuleScreenState extends State<ProductsModuleScreen> {
 
                                     try {
                                       final companyId = company?['id'];
-                                      if (companyId == null)
+                                      if (companyId == null) {
                                         throw Exception(
                                           'No se encontró la compañía actual',
                                         );
+                                      }
 
+                                      // Al vender en el módulo POS, si el usuario selecciona 'Vender por Caja', 
+                                      // la cantidad a descontar del inventario general será: (cantidad_de_cajas * units_per_box)
                                       final productData = {
                                         'company_id': companyId,
                                         'name': name,
                                         'sku': sku,
-                                        'category': selectedCategory,
+                                        'barcode': barcode,
+                                        'category_id': selectedCategoryId,
+                                        'supplier_id': selectedSupplierId,
+                                        'cost_usd': cost,
+                                        'margin_percent': margin,
                                         'price_usd': price,
                                         'unit_type': selectedUnitType,
-                                        'stock': stock,
+                                        if (!isEditing) 'stock': 0,
+                                        'units_per_box': unitsPerBox,
+                                        'weight_grams': weightGrams,
+                                        'is_suspended': isSuspended,
                                       };
 
                                       if (isEditing) {
@@ -336,14 +456,14 @@ class _ProductsModuleScreenState extends State<ProductsModuleScreen> {
                                             .insert(productData);
                                       }
 
-                                      if (!mounted) return;
+                                      if (!dialogContext.mounted) return;
                                       Navigator.of(dialogContext).pop();
                                       _showSnackBar(
                                         isEditing
                                             ? 'Producto actualizado exitosamente'
                                             : 'Producto creado exitosamente',
                                       );
-                                      _fetchData(); // Refrescar la tabla
+                                      // _fetchData() removido por Stream
                                     } catch (e) {
                                       setModalState(() => isSaving = false);
                                       _showSnackBar(
@@ -383,6 +503,10 @@ class _ProductsModuleScreenState extends State<ProductsModuleScreen> {
       },
     );
   }
+
+
+
+
 
   Future<void> _deleteProduct(String productId) async {
     final confirm = await showDialog<bool>(
@@ -429,7 +553,7 @@ class _ProductsModuleScreenState extends State<ProductsModuleScreen> {
           .update({'is_active': false})
           .eq('id', productId);
       _showSnackBar('Producto archivado exitosamente');
-      _fetchData();
+      // _fetchData() removido por Stream
     } catch (e) {
       _showSnackBar('Error al eliminar: $e', isError: true);
     }
@@ -557,60 +681,97 @@ class _ProductsModuleScreenState extends State<ProductsModuleScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Expanded(
-                    child: Card(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      elevation: 2,
-                      clipBehavior: Clip.antiAlias,
-                      color: Colors.white,
-                      child: SingleChildScrollView(
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: DataTable(
-                            headingRowColor: WidgetStateProperty.all(
-                              const Color(0xFFF4F6F9),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          onChanged: _updateSearchQuery,
+                          decoration: InputDecoration(
+                            hintText: 'Buscar por nombre o código de barras...',
+                            prefixIcon: const Icon(Icons.search),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            columns: const [
-                              DataColumn(
-                                label: Text(
-                                  'SKU / ID',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: StreamBuilder<List<Map<String, dynamic>>>(
+                      stream: supabase.from('products').stream(primaryKey: ['id']).eq('is_active', true).order('name'),
+                      builder: (context, snapshot) {
+                        if (snapshot.hasError) {
+                          return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red)));
+                        }
+                        if (!snapshot.hasData) {
+                          return const Center(child: CircularProgressIndicator(color: Color(0xFF281E59)));
+                        }
+
+                        final productsData = snapshot.data!;
+                        final lowerQuery = searchQuery.toLowerCase();
+                        final filteredProducts = searchQuery.isEmpty
+                            ? productsData
+                            : productsData.where((p) {
+                                final nameMatch = (p['name']?.toString().toLowerCase() ?? '').contains(lowerQuery);
+                                final barcodeMatch = (p['barcode']?.toString().toLowerCase() ?? '').contains(lowerQuery);
+                                return nameMatch || barcodeMatch;
+                              }).toList();
+
+                        return Card(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          elevation: 2,
+                          clipBehavior: Clip.antiAlias,
+                          color: Colors.white,
+                          child: SingleChildScrollView(
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: DataTable(
+                                headingRowColor: WidgetStateProperty.all(
+                                  const Color(0xFFF4F6F9),
                                 ),
-                              ),
-                              DataColumn(
-                                label: Text(
-                                  'Nombre',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                              DataColumn(
-                                label: Text(
-                                  'Categoría',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                              DataColumn(
-                                label: Text(
-                                  'Precio USD',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                              DataColumn(
-                                label: Text(
-                                  'Stock',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                              DataColumn(
-                                label: Text(
-                                  'Acciones',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ],
-                            rows: products.map((prod) {
+                                columns: const [
+                                  DataColumn(
+                                    label: Text(
+                                      'SKU / ID',
+                                      style: TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                  DataColumn(
+                                    label: Text(
+                                      'Nombre',
+                                      style: TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                  DataColumn(
+                                    label: Text(
+                                      'Categoría',
+                                      style: TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                  DataColumn(
+                                    label: Text(
+                                      'Precio USD',
+                                      style: TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                  DataColumn(
+                                    label: Text(
+                                      'Stock',
+                                      style: TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                  DataColumn(
+                                    label: Text(
+                                      'Acciones',
+                                      style: TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ],
+                                rows: filteredProducts.map((prod) {
                               final price =
                                   (prod['price_usd'] as num?)?.toDouble() ??
                                   0.0;
@@ -664,12 +825,14 @@ class _ProductsModuleScreenState extends State<ProductsModuleScreen> {
                                   ),
                                 ],
                               );
-                            }).toList(),
+                              }).toList(),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
+                      );
+                    },
                   ),
+                ),
                 ],
               ),
             ),
