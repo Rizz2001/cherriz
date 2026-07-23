@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import '../../../core/utils/responsive_layout.dart';
 
 class PrintInventoryScreen extends StatefulWidget {
   const PrintInventoryScreen({super.key});
@@ -22,7 +23,7 @@ class _PrintInventoryScreenState extends State<PrintInventoryScreen> {
       final compRes = await supabase.from('companies').select().limit(1);
       final prodRes = await supabase.from('products').select().eq('is_active', true).order('name');
       
-      final companyName = compRes.isNotEmpty ? compRes.first['name'] ?? 'Cherriz POS' : 'Cherriz POS';
+      final companyName = compRes.isNotEmpty ? compRes.first['name'] ?? 'Gran Catador' : 'Gran Catador';
       final exchangeRate = compRes.isNotEmpty ? (compRes.first['exchange_rate'] as num?)?.toDouble() ?? 40.0 : 40.0;
       final products = List<Map<String, dynamic>>.from(prodRes);
 
@@ -137,32 +138,63 @@ class _PrintInventoryScreenState extends State<PrintInventoryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F9),
-      appBar: AppBar(
-        title: const Text('Generador de Reportes', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF1E1336),
-        foregroundColor: Colors.white,
-        automaticallyImplyLeading: false,
-      ),
+      appBar: (context.isMobile && !Navigator.canPop(context))
+          ? null
+          : AppBar(
+              title: const Text('Generador de Reportes', style: TextStyle(fontWeight: FontWeight.bold)),
+              backgroundColor: const Color(0xFF1E1336),
+              foregroundColor: Colors.white,
+              automaticallyImplyLeading: false,
+            ),
       body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildReportCard(
-                title: 'Lista de Precios',
-                icon: Icons.price_check,
-                description: 'Genera un catálogo en PDF con los productos y sus precios en USD y Bs (calculado con la tasa actual).',
-                onTap: isGenerating ? null : () => _generateReport(isPriceList: true),
-              ),
-              const SizedBox(width: 32),
-              _buildReportCard(
-                title: 'Stock Actual',
-                icon: Icons.inventory,
-                description: 'Genera un reporte en PDF diseñado para realizar auditorías e inventario físico en el local.',
-                onTap: isGenerating ? null : () => _generateReport(isPriceList: false),
-              ),
-            ],
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isMobile = constraints.maxWidth < 750;
+              if (isMobile) {
+                return Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _buildReportCard(
+                      title: 'Lista de Precios',
+                      icon: Icons.price_check,
+                      description: 'Genera un catálogo en PDF con los productos y sus precios en USD y Bs (calculado con la tasa actual).',
+                      onTap: isGenerating ? null : () => _generateReport(isPriceList: true),
+                      isMobile: true,
+                    ),
+                    const SizedBox(height: 24),
+                    _buildReportCard(
+                      title: 'Stock Actual',
+                      icon: Icons.inventory,
+                      description: 'Genera un reporte en PDF diseñado para realizar auditorías e inventario físico en el local.',
+                      onTap: isGenerating ? null : () => _generateReport(isPriceList: false),
+                      isMobile: true,
+                    ),
+                  ],
+                );
+              }
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildReportCard(
+                    title: 'Lista de Precios',
+                    icon: Icons.price_check,
+                    description: 'Genera un catálogo en PDF con los productos y sus precios en USD y Bs (calculado con la tasa actual).',
+                    onTap: isGenerating ? null : () => _generateReport(isPriceList: true),
+                    isMobile: false,
+                  ),
+                  const SizedBox(width: 32),
+                  _buildReportCard(
+                    title: 'Stock Actual',
+                    icon: Icons.inventory,
+                    description: 'Genera un reporte en PDF diseñado para realizar auditorías e inventario físico en el local.',
+                    onTap: isGenerating ? null : () => _generateReport(isPriceList: false),
+                    isMobile: false,
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -174,6 +206,7 @@ class _PrintInventoryScreenState extends State<PrintInventoryScreen> {
     required IconData icon,
     required String description,
     required VoidCallback? onTap,
+    bool isMobile = false,
   }) {
     return Card(
       elevation: 4,
@@ -182,8 +215,8 @@ class _PrintInventoryScreenState extends State<PrintInventoryScreen> {
         onTap: onTap,
         borderRadius: BorderRadius.circular(24),
         child: Container(
-          width: 350,
-          padding: const EdgeInsets.all(32),
+          width: isMobile ? double.infinity : 350,
+          padding: EdgeInsets.all(isMobile ? 20 : 32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

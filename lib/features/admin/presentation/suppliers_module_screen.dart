@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/utils/responsive_layout.dart';
 
 class SuppliersModuleScreen extends StatefulWidget {
   const SuppliersModuleScreen({super.key});
@@ -213,12 +214,14 @@ class _SuppliersModuleScreenState extends State<SuppliersModuleScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F9),
-      appBar: AppBar(
-        title: const Text('Proveedores', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF1E1336),
-        foregroundColor: Colors.white,
-        automaticallyImplyLeading: false,
-      ),
+      appBar: (context.isMobile && !Navigator.canPop(context))
+          ? null
+          : AppBar(
+              title: const Text('Proveedores', style: TextStyle(fontWeight: FontWeight.bold)),
+              backgroundColor: const Color(0xFF1E1336),
+              foregroundColor: Colors.white,
+              automaticallyImplyLeading: false,
+            ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF281E59)))
           : Padding(
@@ -247,55 +250,96 @@ class _SuppliersModuleScreenState extends State<SuppliersModuleScreen> {
                   ),
                   const SizedBox(height: 24),
                   Expanded(
-                    child: Card(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      elevation: 2,
-                      clipBehavior: Clip.antiAlias,
-                      color: Colors.white,
-                      child: SingleChildScrollView(
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: DataTable(
-                            headingRowColor: WidgetStateProperty.all(const Color(0xFFF4F6F9)),
-                            columns: const [
-                              DataColumn(label: Text('ID', style: TextStyle(fontWeight: FontWeight.bold))),
-                              DataColumn(label: Text('Nombre', style: TextStyle(fontWeight: FontWeight.bold))),
-                              DataColumn(label: Text('Contacto / Teléfono', style: TextStyle(fontWeight: FontWeight.bold))),
-                              DataColumn(label: Text('Acciones', style: TextStyle(fontWeight: FontWeight.bold))),
-                            ],
-                            rows: filteredSuppliers.map((sup) {
-                              return DataRow(
-                                cells: [
-                                  DataCell(Text(sup['id']?.toString().substring(0, 8) ?? '-')),
-                                  DataCell(Text(sup['name'] ?? 'Sin nombre')),
-                                  DataCell(Text(sup['contact_info'] ?? '-')),
-                                  DataCell(
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        IconButton(
-                                          icon: const Icon(Icons.edit, color: Colors.blue),
-                                          onPressed: () => _showSupplierModal(sup),
-                                        ),
-                                        IconButton(
-                                          icon: const Icon(Icons.delete, color: Colors.red),
-                                          onPressed: () => _deleteSupplier(sup['id'].toString()),
-                                        ),
-                                      ],
-                                    ),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isMobile = constraints.maxWidth < 600;
+                        if (isMobile) {
+                          if (filteredSuppliers.isEmpty) {
+                            return const Center(child: Text('No hay proveedores encontrados', style: TextStyle(color: Colors.grey)));
+                          }
+                          return ListView.separated(
+                            itemCount: filteredSuppliers.length,
+                            separatorBuilder: (_, _) => const SizedBox(height: 12),
+                            itemBuilder: (context, index) {
+                              final sup = filteredSuppliers[index];
+                              return Card(
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                elevation: 2,
+                                child: ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  title: Text(sup['name'] ?? 'Sin nombre', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  subtitle: Text('Contacto: ${sup['contact_info'] ?? '-'}'),
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.edit, color: Colors.blue),
+                                        onPressed: () => _showSupplierModal(sup),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete, color: Colors.red),
+                                        onPressed: () => _deleteSupplier(sup['id'].toString()),
+                                      ),
+                                    ],
                                   ),
-                                ],
+                                ),
                               );
-                            }).toList(),
+                            },
+                          );
+                        }
+
+                        return Card(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          elevation: 2,
+                          clipBehavior: Clip.antiAlias,
+                          color: Colors.white,
+                          child: SingleChildScrollView(
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: DataTable(
+                                headingRowColor: WidgetStateProperty.all(const Color(0xFFF4F6F9)),
+                                columns: const [
+                                  DataColumn(label: Text('ID', style: TextStyle(fontWeight: FontWeight.bold))),
+                                  DataColumn(label: Text('Nombre', style: TextStyle(fontWeight: FontWeight.bold))),
+                                  DataColumn(label: Text('Contacto / Teléfono', style: TextStyle(fontWeight: FontWeight.bold))),
+                                  DataColumn(label: Text('Acciones', style: TextStyle(fontWeight: FontWeight.bold))),
+                                ],
+                                rows: filteredSuppliers.map((sup) {
+                                  return DataRow(
+                                    cells: [
+                                      DataCell(Text(sup['id']?.toString().substring(0, 8) ?? '-')),
+                                      DataCell(Text(sup['name'] ?? 'Sin nombre')),
+                                      DataCell(Text(sup['contact_info'] ?? '-')),
+                                      DataCell(
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            IconButton(
+                                              icon: const Icon(Icons.edit, color: Colors.blue),
+                                              onPressed: () => _showSupplierModal(sup),
+                                            ),
+                                            IconButton(
+                                              icon: const Icon(Icons.delete, color: Colors.red),
+                                              onPressed: () => _deleteSupplier(sup['id'].toString()),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                }).toList(),
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
+                        );
+                      },
                     ),
                   ),
                 ],
               ),
             ),
       floatingActionButton: FloatingActionButton(
+        heroTag: null,
         backgroundColor: const Color(0xFF1E1336),
         foregroundColor: Colors.white,
         onPressed: () => _showSupplierModal(),

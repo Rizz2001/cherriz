@@ -2,7 +2,9 @@ import 'dart:ui';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../pos/presentation/pos_screen.dart';
+import '../../../core/state/app_state.dart';
+import '../../../core/utils/responsive_layout.dart';
+import '../../admin/presentation/admin_dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,19 +17,12 @@ class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   final supabase = Supabase.instance.client;
 
-  // Datos dinámicos desde Supabase
-  List<Map<String, dynamic>> companies = [];
-  List<Map<String, dynamic>> employees = [];
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
 
-  Map<String, dynamic>? selectedCompany;
-  Map<String, dynamic>? selectedEmployee;
-
-  String pin = '';
   bool isLoading = false;
   bool hasError = false;
-
-  bool isLoadingCompanies = true;
-  bool isLoadingEmployees = false;
+  bool _obscurePassword = true;
 
   late AnimationController _shakeController;
 
@@ -38,59 +33,18 @@ class _LoginScreenState extends State<LoginScreen>
       vsync: this,
       duration: const Duration(milliseconds: 400),
     );
-    _fetchCompanies();
   }
 
   @override
   void dispose() {
     _shakeController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
-  Future<void> _fetchCompanies() async {
-    try {
-      final response = await supabase.from('companies').select();
-      if (!mounted) return;
-      setState(() {
-        companies = List<Map<String, dynamic>>.from(response);
-        isLoadingCompanies = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        isLoadingCompanies = false;
-      });
-      _showErrorSnackBar('Error al cargar empresas: $e');
-    }
-  }
-
-  Future<void> _fetchEmployees(Map<String, dynamic> company) async {
-    setState(() {
-      selectedCompany = company;
-      isLoadingEmployees = true;
-    });
-
-    try {
-      final response = await supabase
-          .from('profiles')
-          .select()
-          .eq('company_id', company['id']);
-      if (!mounted) return;
-      setState(() {
-        employees = List<Map<String, dynamic>>.from(response);
-        isLoadingEmployees = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        selectedCompany = null; // Revertir selección en caso de error
-        isLoadingEmployees = false;
-      });
-      _showErrorSnackBar('Error al cargar usuarios: $e');
-    }
-  }
-
   void _showErrorSnackBar(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -100,7 +54,7 @@ class _LoginScreenState extends State<LoginScreen>
             fontWeight: FontWeight.w500,
           ),
         ),
-        backgroundColor: const Color(0xFF1E1336).withValues(alpha: 0.9),
+        backgroundColor: Colors.redAccent,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         elevation: 0,
@@ -108,439 +62,412 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  void _onPinKeyPressed(String value) {
-    if (isLoading || pin.length >= 4) return;
+  Future<void> _handleLogin() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
 
-    setState(() {
-      hasError = false;
-      pin += value;
-    });
-
-    if (pin.length == 4) {
-      _validatePin();
+    if (email.isEmpty || password.isEmpty) {
+      _showErrorSnackBar('Por favor ingresa tu correo y contraseña.');
+      _shakeController.forward(from: 0.0);
+      setState(() => hasError = true);
+      return;
     }
-  }
 
-  void _onPinBackspace() {
-    if (isLoading || pin.isEmpty) return;
-
-    setState(() {
-      hasError = false;
-      pin = pin.substring(0, pin.length - 1);
-    });
-  }
-
-  Future<void> _validatePin() async {
     setState(() {
       isLoading = true;
+      hasError = false;
     });
 
-    // Pequeño delay artificial para sentir el feedback visual de progreso
-    await Future.delayed(const Duration(milliseconds: 500));
+    try {
+      // 1. Authenticate with Supabase
+      final AuthResponse res = await supabase.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
 
-    if (!mounted) return;
+      final user = res.user;
+      if (user == null) throw Exception('No se pudo autenticar el usuario.');
 
-    // Asumimos que el PIN viene como String o int, lo parseamos a String
-    final realPin = selectedEmployee?['pin_hash']?.toString() ?? '';
+      // 2. Fetch Employee Profile
+      final profileResponse = await supabase
+          .from('employee_profiles')
+          .select()
+          .eq('id', user.id)
+          .maybeSingle();
 
-    if (pin == realPin && realPin.isNotEmpty) {
-      // Éxito: Navegar a POSScreen
-      Navigator.of(
-        context,
-      ).pushReplacement(MaterialPageRoute(builder: (_) => const POSScreen()));
-    } else {
-      // Error: Vaciar PIN y mostrar animación
+      if (profileResponse == null) {
+        throw Exception('El perfil de empleado no fue encontrado en la base de datos.');
+      }
+      
+      if (profileResponse['is_active'] == false) {
+        throw Exception('Tu cuenta está desactivada. Contacta al administrador.');
+      }
+
+      // 3. Save to Global State
+      AppState.currentUserProfile = profileResponse;
+
+      if (!mounted) return;
+      
+      // 4. Navigate to Dashboard
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
+      );
+    } on AuthException catch (e) {
+      if (!mounted) return;
       setState(() {
         isLoading = false;
         hasError = true;
-        pin = '';
       });
       _shakeController.forward(from: 0.0);
+      _showErrorSnackBar('Credenciales inválidas: ${e.message}');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        isLoading = false;
+        hasError = true;
+      });
+      _shakeController.forward(from: 0.0);
+      _showErrorSnackBar('Error: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF1E1336), // Deep rich purple
-              Color(0xFF281E59), // Mid deep purple/blue
-              Color(0xFF121B2A), // Dark slate/blue
-            ],
-          ),
+      backgroundColor: const Color(0xFF1E1336),
+      body: ResponsiveBuilder(
+        mobile: _buildMobileLayout(),
+        tablet: _buildSplitLayout(isTablet: true),
+        desktop: _buildSplitLayout(isTablet: false),
+      ),
+    );
+  }
+
+  /// Single column layout centered for mobile devices
+  Widget _buildMobileLayout() {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF1E1336),
+            Color(0xFF281E59),
+            Color(0xFF121B2A),
+          ],
         ),
+      ),
+      child: SafeArea(
         child: Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(32),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 400),
-                  curve: Curves.easeInOut,
-                  width: double.infinity,
-                  constraints: const BoxConstraints(maxWidth: 400),
-                  padding: const EdgeInsets.all(32.0),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(32),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      width: 1.5,
-                    ),
-                  ),
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    transitionBuilder:
-                        (Widget child, Animation<double> animation) {
-                          return FadeTransition(
-                            opacity: animation,
-                            child: SlideTransition(
-                              position: Tween<Offset>(
-                                begin: const Offset(0.05, 0.0),
-                                end: Offset.zero,
-                              ).animate(animation),
-                              child: child,
-                            ),
-                          );
-                        },
-                    child: _buildCurrentState(),
-                  ),
-                ),
-              ),
-            ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
+            child: _buildLoginFormCard(isMobile: true),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildCurrentState() {
-    if (selectedCompany == null) {
-      return _buildCompaniesList();
-    } else if (selectedEmployee == null) {
-      return _buildEmployeesList();
-    } else {
-      return _buildPinScreen();
-    }
-  }
-
-  Widget _buildCompaniesList() {
-    return Column(
-      key: const ValueKey('companies'),
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Text(
-          'Seleccionar Empresa',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-        const SizedBox(height: 32),
-        if (isLoadingCompanies)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 32.0),
-            child: CircularProgressIndicator(color: Colors.white),
-          )
-        else if (companies.isEmpty)
-          const Text(
-            'No hay empresas registradas.',
-            style: TextStyle(color: Colors.white70),
-          )
-        else
-          ...companies.map(
-            (company) => Padding(
-              padding: const EdgeInsets.only(bottom: 16.0),
-              child: _buildGlassButton(
-                text: company['name'] ?? 'Empresa Desconocida',
-                onTap: () {
-                  _fetchEmployees(company);
-                },
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildEmployeesList() {
-    return Column(
-      key: const ValueKey('employees'),
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          children: [
-            IconButton(
-              icon: const Icon(
-                Icons.arrow_back_ios_new,
-                size: 20,
-                color: Colors.white70,
-              ),
-              onPressed: () {
-                setState(() {
-                  selectedCompany = null;
-                });
-              },
-            ),
-            Expanded(
-              child: Text(
-                selectedCompany?['name'] ?? '',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-            const SizedBox(width: 40),
+  /// Split-screen layout for Tablet and Desktop
+  Widget _buildSplitLayout({required bool isTablet}) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF1E1336),
+            Color(0xFF281E59),
+            Color(0xFF121B2A),
           ],
         ),
-        const SizedBox(height: 24),
-        const Text(
-          'Seleccionar Usuario',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-            color: Colors.white70,
-          ),
-        ),
-        const SizedBox(height: 16),
-        if (isLoadingEmployees)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 32.0),
-            child: CircularProgressIndicator(color: Colors.white),
-          )
-        else if (employees.isEmpty)
-          const Text(
-            'No hay usuarios configurados.',
-            style: TextStyle(color: Colors.white70),
-          )
-        else
-          ...employees.map(
-            (employee) => Padding(
-              padding: const EdgeInsets.only(bottom: 16.0),
-              child: _buildGlassButton(
-                text: employee['full_name'] ?? employee['name'] ?? 'Usuario',
-                onTap: () {
-                  setState(() {
-                    selectedEmployee = employee;
-                  });
-                },
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildPinScreen() {
-    final employeeName =
-        selectedEmployee?['full_name'] ??
-        selectedEmployee?['name'] ??
-        'Usuario';
-    return Column(
-      key: const ValueKey('pinScreen'),
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          children: [
-            IconButton(
-              icon: const Icon(
-                Icons.arrow_back_ios_new,
-                size: 20,
-                color: Colors.white70,
-              ),
-              onPressed: () {
-                setState(() {
-                  selectedEmployee = null;
-                  pin = '';
-                  hasError = false;
-                });
-              },
-            ),
-            Expanded(
-              child: Text(
-                employeeName,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-            const SizedBox(width: 40),
-          ],
-        ),
-        const SizedBox(height: 24),
-        const Text(
-          'Ingresa tu PIN',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-            color: Colors.white70,
-          ),
-        ),
-        const SizedBox(height: 24),
-
-        AnimatedBuilder(
-          animation: _shakeController,
-          builder: (context, child) {
-            final sineValue = math.sin(_shakeController.value * 4 * math.pi);
-            final dx = hasError ? sineValue * 15 : 0.0;
-
-            return Transform.translate(offset: Offset(dx, 0), child: child);
-          },
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(4, (index) {
-              final isFilled = index < pin.length;
-              return Container(
-                margin: const EdgeInsets.symmetric(horizontal: 8),
-                width: 16,
-                height: 16,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: isFilled
-                      ? (hasError ? Colors.redAccent : Colors.white)
-                      : Colors.transparent,
-                  border: Border.all(
-                    color: hasError ? Colors.redAccent : Colors.white,
-                    width: 2,
-                  ),
-                ),
-              );
-            }),
-          ),
-        ),
-
-        const SizedBox(height: 32),
-
-        if (isLoading)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 32.0),
-            child: CircularProgressIndicator(color: Colors.white),
-          )
-        else
-          _buildNumpad(),
-      ],
-    );
-  }
-
-  Widget _buildNumpad() {
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: ['1', '2', '3'].map((n) => _buildNumpadButton(n)).toList(),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: ['4', '5', '6'].map((n) => _buildNumpadButton(n)).toList(),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: ['7', '8', '9'].map((n) => _buildNumpadButton(n)).toList(),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            const SizedBox(width: 70), // Spacer
-            _buildNumpadButton('0'),
-            _buildNumpadButton('<', isAction: true),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildNumpadButton(String text, {bool isAction = false}) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {
-          if (isAction) {
-            _onPinBackspace();
-          } else {
-            _onPinKeyPressed(text);
-          }
-        },
-        customBorder: const CircleBorder(),
-        child: Container(
-          width: 70,
-          height: 70,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white.withValues(alpha: 0.05),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-          ),
-          child: Center(
-            child: isAction
-                ? const Icon(
-                    Icons.backspace_outlined,
-                    color: Colors.white,
-                    size: 28,
-                  )
-                : Text(
-                    text,
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w400,
+      ),
+      child: Row(
+        children: [
+          // Left Side: Brand & Hero Panel
+          Expanded(
+            flex: isTablet ? 4 : 5,
+            child: Container(
+              padding: EdgeInsets.all(isTablet ? 32.0 : 64.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF7E57C2), Color(0xFF512DA8)],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF7E57C2).withValues(alpha: 0.4),
+                          blurRadius: 20,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.storefront_rounded,
+                      size: 38,
                       color: Colors.white,
                     ),
                   ),
+                  const SizedBox(height: 32),
+                  const Text(
+                    'Cherriz ERP',
+                    style: TextStyle(
+                      fontSize: 42,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.5,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Plataforma integral de gestión empresarial y punto de venta para tu negocio.',
+                    style: TextStyle(
+                      fontSize: 16,
+                      height: 1.5,
+                      color: Colors.white.withValues(alpha: 0.75),
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  _buildFeatureBadge(Icons.analytics_outlined, 'Métricas y reportes en tiempo real'),
+                  const SizedBox(height: 12),
+                  _buildFeatureBadge(Icons.point_of_sale, 'Punto de venta multi-cajero'),
+                  const SizedBox(height: 12),
+                  _buildFeatureBadge(Icons.inventory_2_outlined, 'Control inteligente de inventario'),
+                ],
+              ),
+            ),
+          ),
+
+          // Right Side: Login Form Card
+          Expanded(
+            flex: isTablet ? 6 : 5,
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(32.0),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: _buildLoginFormCard(isMobile: false),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeatureBadge(IconData icon, String text) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, size: 20, color: const Color(0xFFB39DDB)),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Glassmorphism Login Form Card widget used in both mobile and split screens
+  Widget _buildLoginFormCard({required bool isMobile}) {
+    return AnimatedBuilder(
+      animation: _shakeController,
+      builder: (context, child) {
+        final sineValue = math.sin(_shakeController.value * 4 * math.pi);
+        final dx = hasError ? sineValue * 15 : 0.0;
+        return Transform.translate(offset: Offset(dx, 0), child: child);
+      },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(32),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+          child: Container(
+            width: double.infinity,
+            padding: EdgeInsets.all(isMobile ? 28.0 : 40.0),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(32),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: hasError ? 0.6 : 0.2),
+                width: hasError ? 2.0 : 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.2),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header (Only show logo inside card on Mobile or standalone)
+                if (isMobile) ...[
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF7E57C2), Color(0xFF512DA8)],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF7E57C2).withValues(alpha: 0.4),
+                          blurRadius: 15,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.storefront_rounded,
+                      size: 36,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+                Text(
+                  isMobile ? 'Cherriz ERP' : 'Iniciar Sesión',
+                  style: TextStyle(
+                    fontSize: isMobile ? 26 : 28,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.2,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Ingresa tus credenciales para acceder',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white.withValues(alpha: 0.7),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 32),
+                
+                // EMAIL
+                _buildTextField(
+                  controller: _emailController,
+                  hintText: 'Correo Electrónico',
+                  icon: Icons.email_outlined,
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 16),
+                
+                // PASSWORD
+                _buildTextField(
+                  controller: _passwordController,
+                  hintText: 'Contraseña',
+                  icon: Icons.lock_outline_rounded,
+                  obscureText: _obscurePassword,
+                  isPassword: true,
+                ),
+                const SizedBox(height: 32),
+                
+                // BUTTON
+                SizedBox(
+                  width: double.infinity,
+                  height: 54,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFF1E1336),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 4,
+                    ),
+                    onPressed: isLoading ? null : _handleLogin,
+                    child: isLoading
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              color: Color(0xFF1E1336),
+                              strokeWidth: 3,
+                            ),
+                          )
+                        : const Text(
+                            'Acceder',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildGlassButton({
-    required String text,
-    required VoidCallback onTap,
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hintText,
+    required IconData icon,
+    bool obscureText = false,
+    bool isPassword = false,
+    TextInputType? keyboardType,
   }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 18),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Center(
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-            ),
-          ),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+      ),
+      child: TextField(
+        controller: controller,
+        obscureText: obscureText,
+        keyboardType: keyboardType,
+        style: const TextStyle(color: Colors.white, fontSize: 16),
+        decoration: InputDecoration(
+          hintText: hintText,
+          hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+          prefixIcon: Icon(icon, color: Colors.white70),
+          suffixIcon: isPassword
+              ? IconButton(
+                  icon: Icon(
+                    _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                    color: Colors.white70,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _obscurePassword = !_obscurePassword;
+                    });
+                  },
+                )
+              : null,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         ),
       ),
     );
