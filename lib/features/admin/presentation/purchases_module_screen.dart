@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import '../../../core/utils/responsive_layout.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_spacing.dart';
+
+
 
 class PurchasesModuleScreen extends StatefulWidget {
   final Map<String, dynamic>? initialPurchase;
@@ -111,9 +115,9 @@ class _PurchasesModuleScreenState extends State<PurchasesModuleScreen> {
           message,
           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
-        backgroundColor: isError ? Colors.redAccent : Colors.green.shade600,
+        backgroundColor: isError ? AppColors.danger : AppColors.success,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusSm)),
       ),
     );
   }
@@ -181,8 +185,8 @@ class _PurchasesModuleScreenState extends State<PurchasesModuleScreen> {
                         const Expanded(child: Text('Exento de IVA: ')),
                         Switch(
                           value: isExempt,
-                          activeTrackColor: const Color(0xFF1E1336).withValues(alpha: 0.5),
-                          activeThumbColor: const Color(0xFF1E1336),
+                          activeTrackColor: AppColors.primary.withValues(alpha: 0.5),
+                          activeThumbColor: AppColors.primary,
                           onChanged: (val) {
                             setModalState(() => isExempt = val);
                           },
@@ -219,7 +223,7 @@ class _PurchasesModuleScreenState extends State<PurchasesModuleScreen> {
                     _addProductToCartWithQty(product, totalUnits, previousCost, isExempt);
                     Navigator.pop(context);
                   },
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E1336), foregroundColor: Colors.white),
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
                   child: const Text('Agregar al Carrito'),
                 ),
               ],
@@ -370,7 +374,7 @@ class _PurchasesModuleScreenState extends State<PurchasesModuleScreen> {
     if (isLoading) {
       return const Scaffold(
         body: Center(
-          child: CircularProgressIndicator(color: Color(0xFF281E59)),
+          child: CircularProgressIndicator(color: AppColors.primaryAccent),
         ),
       );
     }
@@ -394,7 +398,7 @@ class _PurchasesModuleScreenState extends State<PurchasesModuleScreen> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF1E1336),
+                    color: AppColors.primary,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -481,7 +485,7 @@ class _PurchasesModuleScreenState extends State<PurchasesModuleScreen> {
             filled: true,
             fillColor: Colors.white,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
               borderSide: BorderSide.none,
             ),
           ),
@@ -522,7 +526,7 @@ class _PurchasesModuleScreenState extends State<PurchasesModuleScreen> {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF1E1336),
+                color: AppColors.primary,
               ),
             ),
             const Divider(),
@@ -793,7 +797,7 @@ class _PurchasesModuleScreenState extends State<PurchasesModuleScreen> {
                 ),
                 Text(
                   '\$${(_merchandiseTotal + _taxAmount + freightCost).toStringAsFixed(2)}',
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF281E59)),
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.primaryAccent),
                 ),
               ],
             ),
@@ -805,7 +809,7 @@ class _PurchasesModuleScreenState extends State<PurchasesModuleScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green.shade600,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusSm)),
                 ),
                 onPressed: isProcessing ? null : _processPurchase,
                 child: isProcessing
@@ -819,12 +823,12 @@ class _PurchasesModuleScreenState extends State<PurchasesModuleScreen> {
     );
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F9),
+      backgroundColor: AppColors.background,
       appBar: (context.isMobile && !isEditMode)
           ? null
           : AppBar(
               title: Text(isEditMode ? 'Editar Compra' : 'Módulo de Compras', style: const TextStyle(fontWeight: FontWeight.bold)),
-              backgroundColor: const Color(0xFF1E1336),
+              backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
               automaticallyImplyLeading: isEditMode,
             ),

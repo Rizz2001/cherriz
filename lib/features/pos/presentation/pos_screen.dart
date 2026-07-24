@@ -444,12 +444,15 @@ class _POSScreenState extends State<POSScreen> {
                                     ),
                                   ),
                                   const SizedBox(height: 8),
-                                  Text(
-                                    '\$${_cartTotalUsd.toStringAsFixed(2)}',
-                                    style: const TextStyle(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.w900,
-                                      color: Color(0xFF281E59),
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      '\$${_cartTotalUsd.toStringAsFixed(2)}',
+                                      style: const TextStyle(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.w900,
+                                        color: Color(0xFF281E59),
+                                      ),
                                     ),
                                   ),
                                   Text(
@@ -488,14 +491,17 @@ class _POSScreenState extends State<POSScreen> {
                                     ),
                                   ),
                                   const SizedBox(height: 8),
-                                  Text(
-                                    '\$${(remainingUsd > 0 ? remainingUsd : 0).toStringAsFixed(2)}',
-                                    style: TextStyle(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.w900,
-                                      color: remainingUsd <= 0
-                                          ? Colors.green.shade700
-                                          : Colors.redAccent,
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      '\$${(remainingUsd > 0 ? remainingUsd : 0).toStringAsFixed(2)}',
+                                      style: TextStyle(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.w900,
+                                        color: remainingUsd <= 0
+                                            ? Colors.green.shade700
+                                            : Colors.redAccent,
+                                      ),
                                     ),
                                   ),
                                   Text(
@@ -591,9 +597,10 @@ class _POSScreenState extends State<POSScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Expanded(
-                                    flex: 2,
+                                    flex: 3,
                                     child: DropdownButtonFormField<String>(
                                       initialValue: currentMethod,
+                                      isExpanded: true,
                                       decoration: const InputDecoration(
                                         labelText: 'Método',
                                         border: OutlineInputBorder(),
@@ -635,24 +642,22 @@ class _POSScreenState extends State<POSScreen> {
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 12),
-                                  if (currentMethod == 'Pago Móvil' ||
-                                      currentMethod == 'Zelle')
-                                    Expanded(
-                                      flex: 2,
-                                      child: TextField(
-                                        controller: refController,
-                                        keyboardType: TextInputType.number,
-                                        maxLength: 4,
-                                        decoration: const InputDecoration(
-                                          labelText: 'Referencia (4 dígitos)',
-                                          border: OutlineInputBorder(),
-                                          counterText: '',
-                                        ),
-                                      ),
-                                    ),
                                 ],
                               ),
+                              if (currentMethod == 'Pago Móvil' ||
+                                  currentMethod == 'Zelle') ...[
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: refController,
+                                  keyboardType: TextInputType.number,
+                                  maxLength: 4,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Referencia (4 dígitos)',
+                                    border: OutlineInputBorder(),
+                                    counterText: '',
+                                  ),
+                                ),
+                              ],
                               const SizedBox(height: 16),
                               Align(
                                 alignment: Alignment.centerRight,

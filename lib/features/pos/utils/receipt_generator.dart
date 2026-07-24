@@ -57,13 +57,25 @@ Future<Uint8List> generateReceipt({
               style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
               textAlign: pw.TextAlign.center,
             ),
-            if (company['rif'] != null && company['rif'].toString().isNotEmpty)
+            pw.SizedBox(height: 4),
+            if (company['document_id'] != null && company['document_id'].toString().trim().isNotEmpty)
               pw.Text(
-              'RIF: ${company['rif']}',
-              style: const pw.TextStyle(fontSize: 12),
-              textAlign: pw.TextAlign.center,
-            ),
-            
+                'RIF / C.I: ${company['document_id']}',
+                style: const pw.TextStyle(fontSize: 10),
+                textAlign: pw.TextAlign.center,
+              ),
+            if (company['phone'] != null && company['phone'].toString().trim().isNotEmpty)
+              pw.Text(
+                'Tel: ${company['phone']}',
+                style: const pw.TextStyle(fontSize: 10),
+                textAlign: pw.TextAlign.center,
+              ),
+            if (company['address'] != null && company['address'].toString().trim().isNotEmpty)
+              pw.Text(
+                '${company['address']}',
+                style: const pw.TextStyle(fontSize: 10),
+                textAlign: pw.TextAlign.center,
+              ),
           pw.SizedBox(height: 8),
           pw.Text(
             'Factura N°: $invoiceNumber',
@@ -230,7 +242,9 @@ Future<Uint8List> generateReceipt({
 
             pw.SizedBox(height: 20),
             pw.Text(
-              '*** GRACIAS POR SU COMPRA ***',
+              company['receipt_footer_message'] != null && company['receipt_footer_message'].toString().trim().isNotEmpty
+                  ? company['receipt_footer_message'].toString()
+                  : '¡Gracias por su compra!',
               style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
               textAlign: pw.TextAlign.center,
             ),

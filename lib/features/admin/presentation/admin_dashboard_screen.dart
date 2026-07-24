@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/utils/responsive_layout.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_spacing.dart';
 import 'products_module_screen.dart';
 import 'suppliers_module_screen.dart';
 import 'inventory_management_screen.dart';
@@ -148,7 +150,7 @@ class AdminDashboardScreenState extends State<AdminDashboardScreen> {
   /// Layout for Desktop and Tablet screens (Side NavigationRail)
   Widget _buildDesktopOrTabletLayout(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F9),
+      backgroundColor: AppColors.background,
       body: Row(
         children: [
           LayoutBuilder(
@@ -158,12 +160,12 @@ class AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   constraints: BoxConstraints(minHeight: constraints.maxHeight),
                   child: IntrinsicHeight(
                     child: NavigationRail(
-                      backgroundColor: const Color(0xFF1E1336),
+                      backgroundColor: AppColors.primary,
                       unselectedIconTheme: const IconThemeData(color: Colors.white54),
-                      selectedIconTheme: const IconThemeData(color: Colors.white),
+                      selectedIconTheme: const IconThemeData(color: AppColors.primaryAccent),
                       unselectedLabelTextStyle: const TextStyle(color: Colors.white54),
                       selectedLabelTextStyle: const TextStyle(
-                        color: Colors.white,
+                        color: AppColors.primaryAccent,
                         fontWeight: FontWeight.bold,
                       ),
                       selectedIndex: _selectedIndex,
@@ -206,15 +208,11 @@ class AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final int bottomBarSelectedIndex = _selectedIndex < 4 ? _selectedIndex : 4;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F9),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E1336),
-        foregroundColor: Colors.white,
         title: Text(
           _navItems[_selectedIndex].label,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
-        elevation: 2,
       ),
       drawer: _buildMobileDrawer(context),
       body: IndexedStack(
@@ -225,10 +223,10 @@ class AdminDashboardScreenState extends State<AdminDashboardScreen> {
         builder: (context) {
           return BottomNavigationBar(
             currentIndex: bottomBarSelectedIndex,
-            selectedItemColor: const Color(0xFF7E57C2),
+            selectedItemColor: AppColors.primaryAccent,
             unselectedItemColor: Colors.grey,
             type: BottomNavigationBarType.fixed,
-            backgroundColor: Colors.white,
+            backgroundColor: AppColors.surface,
             elevation: 8,
             onTap: (index) {
               if (index == 4) {
@@ -275,15 +273,12 @@ class AdminDashboardScreenState extends State<AdminDashboardScreen> {
   /// Navigation Drawer for Mobile view
   Widget _buildMobileDrawer(BuildContext context) {
     return Drawer(
+      backgroundColor: AppColors.surface,
       child: Column(
         children: [
           DrawerHeader(
             decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF1E1336), Color(0xFF281E59)],
-              ),
+              color: AppColors.primary,
             ),
             child: Row(
               children: [
@@ -292,9 +287,7 @@ class AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   height: 50,
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: [Color(0xFF7E57C2), Color(0xFF512DA8)],
-                    ),
+                    color: AppColors.primaryAccent,
                   ),
                   child: const Icon(
                     Icons.storefront_rounded,
@@ -302,7 +295,7 @@ class AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     size: 28,
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: AppSpacing.md),
                 const Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -337,13 +330,13 @@ class AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 return ListTile(
                   leading: Icon(
                     isSelected ? item.selectedIcon : item.icon,
-                    color: isSelected ? const Color(0xFF7E57C2) : Colors.black87,
+                    color: isSelected ? AppColors.primaryAccent : AppColors.textMuted,
                   ),
                   title: Text(
                     item.label,
                     style: TextStyle(
                       fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      color: isSelected ? const Color(0xFF7E57C2) : Colors.black87,
+                      color: isSelected ? AppColors.primaryAccent : AppColors.textHigh,
                     ),
                   ),
                   selected: isSelected,

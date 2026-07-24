@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/state/app_state.dart';
 import '../../../core/utils/responsive_layout.dart';
 import '../../admin/presentation/admin_dashboard_screen.dart';
+import '../../pos/presentation/pos_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -73,13 +74,14 @@ class _LoginScreenState extends State<LoginScreen>
       return;
     }
 
+    if (!mounted) return;
     setState(() {
       isLoading = true;
       hasError = false;
     });
 
     try {
-      // 1. Authenticate with Supabase
+      // 1. Autenticación
       final AuthResponse res = await supabase.auth.signInWithPassword(
         email: email,
         password: password,
@@ -88,46 +90,61 @@ class _LoginScreenState extends State<LoginScreen>
       final user = res.user;
       if (user == null) throw Exception('No se pudo autenticar el usuario.');
 
-      // 2. Fetch Employee Profile
-      final profileResponse = await supabase
-          .from('employee_profiles')
+      // 2. Consulta de Perfil en la tabla app_users
+      final userData = await supabase
+          .from('app_users')
           .select()
           .eq('id', user.id)
-          .maybeSingle();
+          .single();
 
-      if (profileResponse == null) {
-        throw Exception('El perfil de empleado no fue encontrado en la base de datos.');
+      // 3. Validación de Estado (is_active)
+      final bool isActive = userData['is_active'] ?? false;
+      if (!isActive) {
+        await supabase.auth.signOut();
+        if (mounted) {
+          _showErrorSnackBar('Acceso denegado: Usuario suspendido o no autorizado');
+        }
+        return;
       }
-      
-      if (profileResponse['is_active'] == false) {
-        throw Exception('Tu cuenta está desactivada. Contacta al administrador.');
-      }
 
-      // 3. Save to Global State
-      AppState.currentUserProfile = profileResponse;
+      AppState.currentUserProfile = userData;
 
+      // 4. Enrutamiento por Rol
       if (!mounted) return;
-      
-      // 4. Navigate to Dashboard
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
-      );
+      final String role = userData['role']?.toString().toUpperCase() ?? '';
+
+      if (role == 'ADMIN' || role == 'GERENTE') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const AdminDashboardScreen()),
+        );
+      } else if (role == 'CAJERO') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const POSScreen()),
+        );
+      } else {
+        await supabase.auth.signOut();
+        if (mounted) {
+          _showErrorSnackBar('Acceso denegado: Rol no reconocido.');
+        }
+      }
     } on AuthException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        isLoading = false;
-        hasError = true;
-      });
-      _shakeController.forward(from: 0.0);
-      _showErrorSnackBar('Credenciales inválidas: ${e.message}');
+      if (mounted) {
+        setState(() => hasError = true);
+        _shakeController.forward(from: 0.0);
+        _showErrorSnackBar('Error de autenticación: ${e.message}');
+      }
     } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        isLoading = false;
-        hasError = true;
-      });
-      _shakeController.forward(from: 0.0);
-      _showErrorSnackBar('Error: $e');
+      if (mounted) {
+        setState(() => hasError = true);
+        _shakeController.forward(from: 0.0);
+        _showErrorSnackBar('Error inesperado: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
     }
   }
 

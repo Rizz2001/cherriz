@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/utils/responsive_layout.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_spacing.dart';
+import '../../../core/widgets/cherriz_button.dart';
+import '../../../core/widgets/cherriz_text_field.dart';
+import '../../../core/widgets/cherriz_card.dart';
+import '../../../core/widgets/cherriz_modal.dart';
 
 class CustomersModuleScreen extends StatefulWidget {
   const CustomersModuleScreen({super.key});
@@ -39,8 +45,13 @@ class _CustomersModuleScreenState extends State<CustomersModuleScreen> {
   void _showSnackBar(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? Colors.redAccent : Colors.green.shade600,
+        content: Text(
+          message,
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: isError ? AppColors.danger : AppColors.success,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusSm)),
       ),
     );
   }
@@ -53,95 +64,102 @@ class _CustomersModuleScreenState extends State<CustomersModuleScreen> {
     final phoneController = TextEditingController(
       text: customer?['phone'] ?? '',
     );
+    bool isSaving = false;
 
-    await showDialog(
+    await CherrizModal.show(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(customer == null ? 'Nuevo Cliente' : 'Editar Cliente'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nombre / Razón Social',
+      title: customer == null ? 'Nuevo Cliente' : 'Editar Cliente',
+      content: StatefulBuilder(
+        builder: (modalContext, setModalState) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CherrizTextField(
+                controller: nameController,
+                labelText: 'Nombre / Razón Social',
+                prefixIcon: Icons.person_outline,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              CherrizTextField(
+                controller: docController,
+                labelText: 'Cédula / RIF',
+                prefixIcon: Icons.badge_outlined,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              CherrizTextField(
+                controller: phoneController,
+                labelText: 'Teléfono',
+                prefixIcon: Icons.phone_outlined,
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  CherrizButton(
+                    text: 'Cancelar',
+                    variant: CherrizButtonVariant.ghost,
+                    onPressed: isSaving ? null : () => Navigator.pop(modalContext),
                   ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: docController,
-                  decoration: const InputDecoration(labelText: 'Cédula / RIF'),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: phoneController,
-                  decoration: const InputDecoration(labelText: 'Teléfono'),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text(
-                'Cancelar',
-                style: TextStyle(color: Colors.grey),
+                  const SizedBox(width: AppSpacing.sm),
+                  CherrizButton(
+                    text: 'Guardar',
+                    isLoading: isSaving,
+                    onPressed: isSaving
+                        ? null
+                        : () async {
+                            final name = nameController.text.trim();
+                            final doc = docController.text.trim();
+                            final phone = phoneController.text.trim();
+
+                            if (name.isEmpty || doc.isEmpty) {
+                              _showSnackBar(
+                                'Nombre y Documento son obligatorios',
+                                isError: true,
+                              );
+                              return;
+                            }
+
+                            setModalState(() => isSaving = true);
+
+                            try {
+                              if (customer == null) {
+                                await supabase.from('customers').insert({
+                                  'name': name,
+                                  'document_id': doc,
+                                  'phone': phone,
+                                });
+                              } else {
+                                await supabase
+                                    .from('customers')
+                                    .update({
+                                      'name': name,
+                                      'document_id': doc,
+                                      'phone': phone,
+                                    })
+                                    .eq('id', customer['id']);
+                              }
+
+                              if (modalContext.mounted) Navigator.pop(modalContext);
+                              _fetchCustomers();
+                              _showSnackBar(
+                                customer == null
+                                    ? 'Cliente agregado'
+                                    : 'Cliente actualizado',
+                              );
+                            } catch (e) {
+                              if (modalContext.mounted) {
+                                setModalState(() => isSaving = false);
+                              }
+                              _showSnackBar('Error guardando cliente: $e', isError: true);
+                            }
+                          },
+                  ),
+                ],
               ),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final name = nameController.text.trim();
-                final doc = docController.text.trim();
-                final phone = phoneController.text.trim();
-
-                if (name.isEmpty || doc.isEmpty) {
-                  _showSnackBar(
-                    'Nombre y Documento son obligatorios',
-                    isError: true,
-                  );
-                  return;
-                }
-
-                try {
-                  if (customer == null) {
-                    await supabase.from('customers').insert({
-                      'name': name,
-                      'document_id': doc,
-                      'phone': phone,
-                    });
-                  } else {
-                    await supabase
-                        .from('customers')
-                        .update({
-                          'name': name,
-                          'document_id': doc,
-                          'phone': phone,
-                        })
-                        .eq('id', customer['id']);
-                  }
-
-                  if (context.mounted) Navigator.pop(context);
-                  _fetchCustomers();
-                  _showSnackBar(
-                    customer == null
-                        ? 'Cliente agregado'
-                        : 'Cliente actualizado',
-                  );
-                } catch (e) {
-                  _showSnackBar('Error guardando cliente: $e', isError: true);
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1E1336),
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Guardar'),
-            ),
-          ],
-        );
-      },
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -149,54 +167,51 @@ class _CustomersModuleScreenState extends State<CustomersModuleScreen> {
   Widget build(BuildContext context) {
     if (isLoading) {
       return const Scaffold(
+        backgroundColor: AppColors.background,
         body: Center(
-          child: CircularProgressIndicator(color: Color(0xFF1E1336)),
+          child: CircularProgressIndicator(color: AppColors.primaryAccent),
         ),
       );
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F9),
+      backgroundColor: AppColors.background,
       appBar: (context.isMobile && !Navigator.canPop(context))
           ? null
           : AppBar(
-              title: const Text(
-                'Módulo de Clientes',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              backgroundColor: const Color(0xFF1E1336),
-              foregroundColor: Colors.white,
+              title: const Text('Módulo de Clientes'),
+              automaticallyImplyLeading: false,
             ),
       body: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           children: [
             Expanded(
-              child: Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: ListView.separated(
-                  itemCount: customers.length,
-                  separatorBuilder: (_, _) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final customer = customers[index];
-                    return ListTile(
-                      title: Text(
-                        customer['name'],
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+              child: CherrizCard(
+                padding: EdgeInsets.zero,
+                child: customers.isEmpty
+                    ? const Center(child: Text('No hay clientes registrados', style: TextStyle(color: AppColors.textMuted)))
+                    : ListView.separated(
+                        itemCount: customers.length,
+                        separatorBuilder: (_, _) => const Divider(height: 1, color: AppColors.border),
+                        itemBuilder: (context, index) {
+                          final customer = customers[index];
+                          return ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                            title: Text(
+                              customer['name'],
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            subtitle: Text(
+                              '${customer['document_id']} | Tel: ${customer['phone'] ?? 'N/A'}',
+                            ),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
+                              onPressed: () => _showCustomerModal(customer),
+                            ),
+                          );
+                        },
                       ),
-                      subtitle: Text(
-                        '${customer['document_id']} | Tel: ${customer['phone'] ?? 'N/A'}',
-                      ),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.edit, color: Color(0xFF1E1336)),
-                        onPressed: () => _showCustomerModal(customer),
-                      ),
-                    );
-                  },
-                ),
               ),
             ),
           ],
@@ -204,10 +219,10 @@ class _CustomersModuleScreenState extends State<CustomersModuleScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         heroTag: null,
-        backgroundColor: const Color(0xFF1E1336),
+        backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         onPressed: () => _showCustomerModal(),
-        child: const Icon(Icons.add),
+        child: const Icon(Icons.person_add_alt_1),
       ),
     );
   }

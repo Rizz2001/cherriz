@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/utils/responsive_layout.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_spacing.dart';
+import '../../../core/widgets/cherriz_card.dart';
+import '../../../core/widgets/cherriz_badge.dart';
+import '../../../core/widgets/cherriz_data_table.dart';
+import '../../../core/widgets/cherriz_modal.dart';
 
 class ProductsModuleScreen extends StatefulWidget {
   const ProductsModuleScreen({super.key});
@@ -98,9 +104,9 @@ class _ProductsModuleScreenState extends State<ProductsModuleScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        backgroundColor: isError ? Colors.redAccent : Colors.green.shade600,
+        backgroundColor: isError ? AppColors.danger : AppColors.success,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusSm)),
       ),
     );
   }
@@ -628,40 +634,18 @@ class _ProductsModuleScreenState extends State<ProductsModuleScreen> {
 
 
   Future<void> _deleteProduct(String productId) async {
-    final confirm = await showDialog<bool>(
+    final confirm = await CherrizModal.show<bool>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text(
-            'Confirmar Eliminación',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1E1336),
-            ),
-          ),
-          content: const Text('¿Seguro que desea eliminar este producto?'),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text(
-                'Cancelar',
-                style: TextStyle(color: Colors.grey),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Eliminar'),
-            ),
-          ],
-        );
-      },
+      title: 'Confirmar Eliminación',
+      isDestructive: true,
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      onCancel: () => Navigator.pop(context, false),
+      onConfirm: () => Navigator.pop(context, true),
+      content: const Text(
+        '¿Seguro que desea eliminar este producto?',
+        style: TextStyle(fontSize: 16),
+      ),
     );
 
     if (confirm != true) return;
@@ -681,21 +665,16 @@ class _ProductsModuleScreenState extends State<ProductsModuleScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F9),
+      backgroundColor: AppColors.background,
       appBar: (context.isMobile && !Navigator.canPop(context))
           ? null
           : AppBar(
-              title: const Text(
-                'Inventario',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              backgroundColor: const Color(0xFF1E1336),
-              foregroundColor: Colors.white,
+              title: const Text('Inventario'),
               automaticallyImplyLeading: false,
             ),
       body: isLoading
           ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF281E59)),
+              child: CircularProgressIndicator(color: AppColors.primaryAccent),
             )
           : Padding(
               padding: const EdgeInsets.all(24.0),
@@ -976,110 +955,59 @@ class _ProductsModuleScreenState extends State<ProductsModuleScreen> {
                               );
                             }
 
-                            return Card(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              elevation: 2,
-                              clipBehavior: Clip.antiAlias,
-                              color: Colors.white,
-                              child: SingleChildScrollView(
-                                child: SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: DataTable(
-                                    headingRowColor: WidgetStateProperty.all(
-                                      const Color(0xFFF4F6F9),
-                                    ),
-                                    columns: const [
-                                      DataColumn(
-                                        label: Text(
-                                          'SKU / ID',
-                                          style: TextStyle(fontWeight: FontWeight.bold),
+                            return CherrizCard(
+                              padding: EdgeInsets.zero,
+                              child: SizedBox(
+                                width: double.infinity,
+                                child: CherrizDataTable(
+                                  columns: const [
+                                    DataColumn(label: Text('SKU / ID')),
+                                    DataColumn(label: Text('Nombre')),
+                                    DataColumn(label: Text('Categoría')),
+                                    DataColumn(label: Text('Precio USD')),
+                                    DataColumn(label: Text('Stock')),
+                                    DataColumn(label: Text('Acciones')),
+                                  ],
+                                  rows: filteredProducts.map((prod) {
+                                    final price = (prod['price_usd'] as num?)?.toDouble() ?? 0.0;
+                                    return DataRow(
+                                      cells: [
+                                        DataCell(Text(prod['id']?.toString().substring(0, 8) ?? '-')),
+                                        DataCell(Text(prod['name'] ?? 'Sin nombre')),
+                                        DataCell(
+                                          CherrizBadge(
+                                            text: prod['category'] ?? 'Sin categoría',
+                                            variant: CherrizBadgeVariant.info,
+                                          ),
                                         ),
-                                      ),
-                                      DataColumn(
-                                        label: Text(
-                                          'Nombre',
-                                          style: TextStyle(fontWeight: FontWeight.bold),
-                                        ),
-                                      ),
-                                      DataColumn(
-                                        label: Text(
-                                          'Categoría',
-                                          style: TextStyle(fontWeight: FontWeight.bold),
-                                        ),
-                                      ),
-                                      DataColumn(
-                                        label: Text(
-                                          'Precio USD',
-                                          style: TextStyle(fontWeight: FontWeight.bold),
-                                        ),
-                                      ),
-                                      DataColumn(
-                                        label: Text(
-                                          'Stock',
-                                          style: TextStyle(fontWeight: FontWeight.bold),
-                                        ),
-                                      ),
-                                      DataColumn(
-                                        label: Text(
-                                          'Acciones',
-                                          style: TextStyle(fontWeight: FontWeight.bold),
-                                        ),
-                                      ),
-                                    ],
-                                    rows: filteredProducts.map((prod) {
-                                      final price = (prod['price_usd'] as num?)?.toDouble() ?? 0.0;
-                                      return DataRow(
-                                        cells: [
-                                          DataCell(
-                                            Text(
-                                              prod['id']?.toString().substring(0, 8) ?? '-',
+                                        DataCell(
+                                          Text(
+                                            '\$${price.toStringAsFixed(2)}',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.primary,
                                             ),
                                           ),
-                                          DataCell(Text(prod['name'] ?? 'Sin nombre')),
-                                          DataCell(
-                                            Text(prod['category'] ?? 'Sin categoría'),
-                                          ),
-                                          DataCell(
-                                            Text(
-                                              '\$${price.toStringAsFixed(2)}',
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                color: Color(0xFF281E59),
+                                        ),
+                                        DataCell(Text(prod['stock']?.toString() ?? '0')),
+                                        DataCell(
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              IconButton(
+                                                icon: const Icon(Icons.edit_outlined, color: AppColors.primaryAccent),
+                                                onPressed: () => _showProductModal(prod),
                                               ),
-                                            ),
+                                              IconButton(
+                                                icon: const Icon(Icons.delete_outline, color: AppColors.danger),
+                                                onPressed: () => _deleteProduct(prod['id'].toString()),
+                                              ),
+                                            ],
                                           ),
-                                          DataCell(
-                                            Text(prod['stock']?.toString() ?? '0'),
-                                          ),
-                                          DataCell(
-                                            Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                IconButton(
-                                                  icon: const Icon(
-                                                    Icons.edit,
-                                                    color: Colors.blue,
-                                                  ),
-                                                  onPressed: () => _showProductModal(prod),
-                                                ),
-                                                IconButton(
-                                                  icon: const Icon(
-                                                    Icons.delete,
-                                                    color: Colors.red,
-                                                  ),
-                                                  onPressed: () => _deleteProduct(
-                                                    prod['id'].toString(),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      );
-                                    }).toList(),
-                                  ),
+                                        ),
+                                      ],
+                                    );
+                                  }).toList(),
                                 ),
                               ),
                             );
@@ -1093,7 +1021,7 @@ class _ProductsModuleScreenState extends State<ProductsModuleScreen> {
             ),
       floatingActionButton: FloatingActionButton(
         heroTag: null,
-        backgroundColor: const Color(0xFF1E1336),
+        backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         onPressed: () => _showProductModal(),
         child: const Icon(Icons.add),

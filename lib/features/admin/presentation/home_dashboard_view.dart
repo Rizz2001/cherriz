@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../core/utils/responsive_layout.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_spacing.dart';
+import '../../../core/widgets/cherriz_card.dart';
+import 'company_profile_screen.dart';
+import 'user_management_screen.dart';
 
 class HomeDashboardView extends StatelessWidget {
   final Function(int) onNavigate;
@@ -15,15 +20,15 @@ class HomeDashboardView extends StatelessWidget {
     );
 
     final int crossAxisCount = context.responsiveValue(
-      mobile: 1,
-      tablet: 2,
-      desktop: 3,
+      mobile: 2,
+      tablet: 3,
+      desktop: 4,
     );
 
     final double childAspectRatio = context.responsiveValue(
-      mobile: 2.2,
-      tablet: 1.5,
-      desktop: 1.4,
+      mobile: 1.1,
+      tablet: 1.2,
+      desktop: 1.3,
     );
 
     return SingleChildScrollView(
@@ -33,21 +38,19 @@ class HomeDashboardView extends StatelessWidget {
         children: [
           Text(
             'Panel Principal',
-            style: TextStyle(
-              fontSize: context.isMobile ? 24 : 32,
-              fontWeight: FontWeight.bold,
-              color: const Color(0xFF1E1336),
-            ),
+            style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                  fontSize: context.isMobile ? 24 : 32,
+                ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.sm),
           Text(
             'Bienvenido a Gran Catador. Selecciona un módulo para comenzar.',
-            style: TextStyle(
-              fontSize: context.isMobile ? 14 : 18,
-              color: Colors.black54,
-            ),
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: AppColors.textMuted,
+                  fontSize: context.isMobile ? 14 : 16,
+                ),
           ),
-          SizedBox(height: context.isMobile ? 24 : 48),
+          SizedBox(height: context.isMobile ? AppSpacing.lg : AppSpacing.xxl),
           GridView.count(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -56,12 +59,28 @@ class HomeDashboardView extends StatelessWidget {
             mainAxisSpacing: context.isMobile ? 16 : 32,
             childAspectRatio: childAspectRatio,
             children: [
-              _buildCard(context, 'Punto de Venta', Icons.point_of_sale, 1, Colors.blue),
-              _buildCard(context, 'Stock / Inventario', Icons.warehouse, 4, Colors.orange),
-              _buildCard(context, 'Productos', Icons.inventory_2, 2, Colors.purple),
-              _buildCard(context, 'Clientes', Icons.people_alt, 5, Colors.indigo),
-              _buildCard(context, 'Compras', Icons.shopping_cart_checkout, 6, Colors.teal),
-              _buildCard(context, 'Cuentas por Cobrar', Icons.request_quote, 8, Colors.green),
+              _buildCard(context, 'Punto de Venta', Icons.point_of_sale, Colors.blue, () => onNavigate(1)),
+              _buildCard(context, 'Stock / Inventario', Icons.warehouse, Colors.orange, () => onNavigate(4)),
+              _buildCard(context, 'Productos', Icons.inventory_2, Colors.purple, () => onNavigate(2)),
+              _buildCard(context, 'Clientes', Icons.people_alt, Colors.indigo, () => onNavigate(5)),
+              _buildCard(context, 'Compras', Icons.shopping_cart_checkout, Colors.teal, () => onNavigate(6)),
+              _buildCard(context, 'Cuentas por Cobrar', Icons.request_quote, Colors.green, () => onNavigate(8)),
+              _buildCard(context, 'Perfil de Empresa', Icons.storefront, Colors.blueGrey, () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const CompanyProfileScreen(),
+                  ),
+                );
+              }),
+              _buildCard(context, 'Control de Usuarios', Icons.manage_accounts, Colors.deepOrange, () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const UserManagementScreen(),
+                  ),
+                );
+              }),
             ],
           ),
         ],
@@ -73,70 +92,35 @@ class HomeDashboardView extends StatelessWidget {
     BuildContext context,
     String title,
     IconData icon,
-    int destinationIndex,
     MaterialColor color,
+    VoidCallback onTap,
   ) {
     final bool isMobile = context.isMobile;
 
-    return InkWell(
-      onTap: () => onNavigate(destinationIndex),
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: EdgeInsets.all(isMobile ? 12.0 : 16.0),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.shade100, width: 2),
-          boxShadow: [
-            BoxShadow(
-              color: color.withValues(alpha: 0.08),
-              blurRadius: 15,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: isMobile
-            ? Row(
-                children: [
-                  CircleAvatar(
-                    radius: 26,
-                    backgroundColor: color.shade50,
-                    child: Icon(icon, size: 26, color: color.shade700),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1E1336),
-                      ),
-                    ),
-                  ),
-                  Icon(Icons.chevron_right, color: color.shade400),
-                ],
-              )
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircleAvatar(
-                    radius: 36,
-                    backgroundColor: color.shade50,
-                    child: Icon(icon, size: 36, color: color.shade700),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1E1336),
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
+    return CherrizCard(
+      onTap: onTap,
+      padding: EdgeInsets.all(isMobile ? AppSpacing.md : AppSpacing.lg),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircleAvatar(
+            radius: isMobile ? 20 : 26,
+            backgroundColor: AppColors.primary.withValues(alpha: 0.04),
+            child: Icon(icon, size: isMobile ? 22 : 28, color: AppColors.primaryAccent),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                  fontSize: isMobile ? 12 : 14,
+                ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }

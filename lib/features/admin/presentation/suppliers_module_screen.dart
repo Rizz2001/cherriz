@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/utils/responsive_layout.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_spacing.dart';
+import '../../../core/widgets/cherriz_button.dart';
+import '../../../core/widgets/cherriz_text_field.dart';
+import '../../../core/widgets/cherriz_card.dart';
+import '../../../core/widgets/cherriz_data_table.dart';
+import '../../../core/widgets/cherriz_modal.dart';
 
 class SuppliersModuleScreen extends StatefulWidget {
   const SuppliersModuleScreen({super.key});
@@ -61,9 +68,9 @@ class _SuppliersModuleScreenState extends State<SuppliersModuleScreen> {
           message,
           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
-        backgroundColor: isError ? Colors.redAccent : Colors.green.shade600,
+        backgroundColor: isError ? AppColors.danger : AppColors.success,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusSm)),
       ),
     );
   }
@@ -74,128 +81,95 @@ class _SuppliersModuleScreenState extends State<SuppliersModuleScreen> {
     final contactController = TextEditingController(text: isEditing ? (supplier['contact_info'] ?? '') : '');
     bool isSaving = false;
 
-    await showDialog(
+    await CherrizModal.show(
       context: context,
-      barrierDismissible: false,
-      builder: (BuildContext dialogContext) {
-        return StatefulBuilder(
-          builder: (modalContext, setModalState) {
-            return Dialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-              backgroundColor: Colors.white,
-              child: Container(
-                width: 400,
-                padding: const EdgeInsets.all(32.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      isEditing ? 'Editar Proveedor' : 'Nuevo Proveedor',
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1E1336),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    TextField(
-                      controller: nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Nombre del Proveedor',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: contactController,
-                      decoration: const InputDecoration(
-                        labelText: 'Teléfono / Contacto',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: isSaving ? null : () => Navigator.of(dialogContext).pop(),
-                          child: const Text('Cancelar', style: TextStyle(color: Colors.grey, fontSize: 16)),
-                        ),
-                        const SizedBox(width: 16),
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF1E1336),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                          onPressed: isSaving ? null : () async {
-                            final name = nameController.text.trim();
-                            final contactInfo = contactController.text.trim();
-
-                            if (name.isEmpty) {
-                              _showSnackBar('El nombre es obligatorio', isError: true);
-                              return;
-                            }
-
-                            setModalState(() => isSaving = true);
-
-                            try {
-                              final data = {
-                                'name': name,
-                                'contact_info': contactInfo,
-                              };
-
-                              if (isEditing) {
-                                await supabase.from('suppliers').update(data).eq('id', supplier['id']);
-                              } else {
-                                await supabase.from('suppliers').insert(data);
-                              }
-
-                              if (!dialogContext.mounted) return;
-                              Navigator.of(dialogContext).pop();
-                              _showSnackBar(isEditing ? 'Proveedor actualizado' : 'Proveedor creado');
-                              _fetchSuppliers();
-                            } catch (e) {
-                              setModalState(() => isSaving = false);
-                              _showSnackBar('Error: $e', isError: true);
-                            }
-                          },
-                          child: isSaving
-                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                              : Text(isEditing ? 'Actualizar' : 'Guardar', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+      title: isEditing ? 'Editar Proveedor' : 'Nuevo Proveedor',
+      content: StatefulBuilder(
+        builder: (modalContext, setModalState) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CherrizTextField(
+                controller: nameController,
+                labelText: 'Nombre del Proveedor',
+                prefixIcon: Icons.storefront_outlined,
               ),
-            );
-          },
-        );
-      },
+              const SizedBox(height: AppSpacing.md),
+              CherrizTextField(
+                controller: contactController,
+                labelText: 'Teléfono / Contacto',
+                prefixIcon: Icons.contact_phone_outlined,
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  CherrizButton(
+                    text: 'Cancelar',
+                    variant: CherrizButtonVariant.ghost,
+                    onPressed: isSaving ? null : () => Navigator.of(modalContext).pop(),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  CherrizButton(
+                    text: isEditing ? 'Actualizar' : 'Guardar',
+                    isLoading: isSaving,
+                    onPressed: isSaving ? null : () async {
+                      final name = nameController.text.trim();
+                      final contactInfo = contactController.text.trim();
+
+                      if (name.isEmpty) {
+                        _showSnackBar('El nombre es obligatorio', isError: true);
+                        return;
+                      }
+
+                      setModalState(() => isSaving = true);
+
+                      try {
+                        final data = {
+                          'name': name,
+                          'contact_info': contactInfo,
+                        };
+
+                        if (isEditing) {
+                          await supabase.from('suppliers').update(data).eq('id', supplier['id']);
+                        } else {
+                          await supabase.from('suppliers').insert(data);
+                        }
+
+                        if (!modalContext.mounted) return;
+                        Navigator.of(modalContext).pop();
+                        _showSnackBar(isEditing ? 'Proveedor actualizado' : 'Proveedor creado');
+                        _fetchSuppliers();
+                      } catch (e) {
+                        if (modalContext.mounted) {
+                          setModalState(() => isSaving = false);
+                        }
+                        _showSnackBar('Error: $e', isError: true);
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 
   Future<void> _deleteSupplier(String supplierId) async {
-    final confirm = await showDialog<bool>(
+    final confirm = await CherrizModal.show<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirmar Eliminación', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E1336))),
-        content: const Text('¿Seguro que desea eliminar este proveedor?'),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
-            child: const Text('Eliminar'),
-          ),
-        ],
+      title: 'Confirmar Eliminación',
+      isDestructive: true,
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      onCancel: () => Navigator.pop(context, false),
+      onConfirm: () => Navigator.pop(context, true),
+      content: const Text(
+        '¿Seguro que desea eliminar este proveedor?',
+        style: TextStyle(fontSize: 16),
       ),
     );
 
@@ -213,71 +187,60 @@ class _SuppliersModuleScreenState extends State<SuppliersModuleScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F9),
+      backgroundColor: AppColors.background,
       appBar: (context.isMobile && !Navigator.canPop(context))
           ? null
           : AppBar(
-              title: const Text('Proveedores', style: TextStyle(fontWeight: FontWeight.bold)),
-              backgroundColor: const Color(0xFF1E1336),
-              foregroundColor: Colors.white,
+              title: const Text('Proveedores'),
               automaticallyImplyLeading: false,
             ),
       body: isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF281E59)))
+          ? const Center(child: CircularProgressIndicator(color: AppColors.primaryAccent))
           : Padding(
-              padding: const EdgeInsets.all(24.0),
+              padding: const EdgeInsets.all(AppSpacing.lg),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
                       Expanded(
-                        child: TextField(
+                        child: CherrizTextField(
                           onChanged: _filterSuppliers,
-                          decoration: InputDecoration(
-                            hintText: 'Buscar por nombre o contacto...',
-                            prefixIcon: const Icon(Icons.search),
-                            filled: true,
-                            fillColor: Colors.white,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
+                          hintText: 'Buscar por nombre o contacto...',
+                          prefixIcon: Icons.search,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: AppSpacing.lg),
                   Expanded(
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         final isMobile = constraints.maxWidth < 600;
                         if (isMobile) {
                           if (filteredSuppliers.isEmpty) {
-                            return const Center(child: Text('No hay proveedores encontrados', style: TextStyle(color: Colors.grey)));
+                            return const Center(child: Text('No hay proveedores encontrados', style: TextStyle(color: AppColors.textMuted)));
                           }
                           return ListView.separated(
                             itemCount: filteredSuppliers.length,
-                            separatorBuilder: (_, _) => const SizedBox(height: 12),
+                            separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
                             itemBuilder: (context, index) {
                               final sup = filteredSuppliers[index];
-                              return Card(
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                elevation: 2,
+                              return CherrizCard(
+                                padding: const EdgeInsets.all(AppSpacing.md),
                                 child: ListTile(
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  contentPadding: EdgeInsets.zero,
                                   title: Text(sup['name'] ?? 'Sin nombre', style: const TextStyle(fontWeight: FontWeight.bold)),
                                   subtitle: Text('Contacto: ${sup['contact_info'] ?? '-'}'),
                                   trailing: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       IconButton(
-                                        icon: const Icon(Icons.edit, color: Colors.blue),
+                                        icon: const Icon(Icons.edit_outlined, color: AppColors.primaryAccent),
                                         onPressed: () => _showSupplierModal(sup),
                                       ),
                                       IconButton(
-                                        icon: const Icon(Icons.delete, color: Colors.red),
+                                        icon: const Icon(Icons.delete_outline, color: AppColors.danger),
                                         onPressed: () => _deleteSupplier(sup['id'].toString()),
                                       ),
                                     ],
@@ -288,47 +251,45 @@ class _SuppliersModuleScreenState extends State<SuppliersModuleScreen> {
                           );
                         }
 
-                        return Card(
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          elevation: 2,
-                          clipBehavior: Clip.antiAlias,
-                          color: Colors.white,
-                          child: SingleChildScrollView(
-                            child: SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: DataTable(
-                                headingRowColor: WidgetStateProperty.all(const Color(0xFFF4F6F9)),
-                                columns: const [
-                                  DataColumn(label: Text('ID', style: TextStyle(fontWeight: FontWeight.bold))),
-                                  DataColumn(label: Text('Nombre', style: TextStyle(fontWeight: FontWeight.bold))),
-                                  DataColumn(label: Text('Contacto / Teléfono', style: TextStyle(fontWeight: FontWeight.bold))),
-                                  DataColumn(label: Text('Acciones', style: TextStyle(fontWeight: FontWeight.bold))),
-                                ],
-                                rows: filteredSuppliers.map((sup) {
-                                  return DataRow(
-                                    cells: [
-                                      DataCell(Text(sup['id']?.toString().substring(0, 8) ?? '-')),
-                                      DataCell(Text(sup['name'] ?? 'Sin nombre')),
-                                      DataCell(Text(sup['contact_info'] ?? '-')),
-                                      DataCell(
-                                        Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            IconButton(
-                                              icon: const Icon(Icons.edit, color: Colors.blue),
-                                              onPressed: () => _showSupplierModal(sup),
-                                            ),
-                                            IconButton(
-                                              icon: const Icon(Icons.delete, color: Colors.red),
-                                              onPressed: () => _deleteSupplier(sup['id'].toString()),
-                                            ),
-                                          ],
-                                        ),
+                        if (filteredSuppliers.isEmpty) {
+                          return const Center(child: Text('No hay proveedores encontrados', style: TextStyle(color: AppColors.textMuted)));
+                        }
+
+                        return CherrizCard(
+                          padding: EdgeInsets.zero,
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: CherrizDataTable(
+                              columns: const [
+                                DataColumn(label: Text('ID')),
+                                DataColumn(label: Text('Nombre')),
+                                DataColumn(label: Text('Contacto / Teléfono')),
+                                DataColumn(label: Text('Acciones')),
+                              ],
+                              rows: filteredSuppliers.map((sup) {
+                                return DataRow(
+                                  cells: [
+                                    DataCell(Text(sup['id']?.toString().substring(0, 8) ?? '-')),
+                                    DataCell(Text(sup['name'] ?? 'Sin nombre')),
+                                    DataCell(Text(sup['contact_info'] ?? '-')),
+                                    DataCell(
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          IconButton(
+                                            icon: const Icon(Icons.edit_outlined, color: AppColors.primaryAccent),
+                                            onPressed: () => _showSupplierModal(sup),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.delete_outline, color: AppColors.danger),
+                                            onPressed: () => _deleteSupplier(sup['id'].toString()),
+                                          ),
+                                        ],
                                       ),
-                                    ],
-                                  );
-                                }).toList(),
-                              ),
+                                    ),
+                                  ],
+                                );
+                              }).toList(),
                             ),
                           ),
                         );
@@ -340,7 +301,7 @@ class _SuppliersModuleScreenState extends State<SuppliersModuleScreen> {
             ),
       floatingActionButton: FloatingActionButton(
         heroTag: null,
-        backgroundColor: const Color(0xFF1E1336),
+        backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         onPressed: () => _showSupplierModal(),
         child: const Icon(Icons.add),
